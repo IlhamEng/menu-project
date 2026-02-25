@@ -12,6 +12,8 @@ import {
     type DragEndEvent,
     DragOverlay,
     type DragStartEvent,
+    defaultDropAnimationSideEffects,
+    MeasuringStrategy,
 } from '@dnd-kit/core';
 import {
     SortableContext,
@@ -50,6 +52,18 @@ export default function MenuTree({ onAddChild }: MenuTreeProps) {
         useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
         useSensor(KeyboardSensor)
     );
+
+    const dropAnimation = {
+        sideEffects: defaultDropAnimationSideEffects({
+            styles: { active: { opacity: '0.4' } },
+        }),
+        duration: 250,
+        easing: 'cubic-bezier(0.25, 1, 0.5, 1)',
+    };
+
+    const measuring = {
+        droppable: { strategy: MeasuringStrategy.Always },
+    };
 
     // Filter root menus by search
     const filteredMenus = searchQuery
@@ -145,6 +159,7 @@ export default function MenuTree({ onAddChild }: MenuTreeProps) {
                 collisionDetection={closestCenter}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
+                measuring={measuring}
             >
                 <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
                     <div className="pl-1">
@@ -163,10 +178,10 @@ export default function MenuTree({ onAddChild }: MenuTreeProps) {
                     </div>
                 </SortableContext>
 
-                <DragOverlay>
+                <DragOverlay dropAnimation={dropAnimation}>
                     {activeFlat ? (
-                        <div className="bg-white border border-blue-300 rounded-lg px-3 py-1.5 shadow-lg text-sm font-medium text-blue-700 opacity-90">
-                            {activeFlat.item.name}
+                        <div className="bg-white border-2 border-blue-400 rounded-lg px-4 py-2 shadow-xl text-sm font-semibold text-blue-700 transform scale-105 transition-shadow">
+                            ⠿ {activeFlat.item.name}
                         </div>
                     ) : null}
                 </DragOverlay>

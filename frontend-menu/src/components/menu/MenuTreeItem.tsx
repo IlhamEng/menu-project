@@ -35,13 +35,14 @@ export default function MenuTreeItem({
         transform,
         transition,
         isDragging,
+        isOver,
     } = useSortable({ id: item.id });
 
-    const style = {
-        transform: CSS.Transform.toString(transform),
-        transition,
+    const style: React.CSSProperties = {
+        transform: CSS.Transform.toString(transform ? { ...transform, x: 0 } : null),
+        transition: transition ?? 'transform 250ms cubic-bezier(0.25, 1, 0.5, 1)',
         opacity: isDragging ? 0.4 : 1,
-        zIndex: isDragging ? 50 : 'auto' as const,
+        zIndex: isDragging ? 50 : 'auto',
     };
 
     const isExpanded = expandedIds.has(item.id);
@@ -73,7 +74,11 @@ export default function MenuTreeItem({
     };
 
     return (
-        <div ref={setNodeRef} style={style} className="select-none">
+        <div ref={setNodeRef} style={style} className="select-none relative">
+            {/* Drop indicator line */}
+            {isOver && !isDragging && (
+                <div className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 rounded-full z-10 shadow-[0_0_4px_rgba(59,130,246,0.5)]" />
+            )}
             {/* Current node */}
             <div
                 className={`flex items-center group relative ${isDragging ? 'bg-blue-50 rounded-lg' : ''}`}
