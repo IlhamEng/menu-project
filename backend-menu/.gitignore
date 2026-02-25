@@ -1,0 +1,11 @@
+.env
+tmp/
+bin/
+docs/swagger.json
+docs/swagger.yaml
+docs/docs.go
+*.exe
+coverage.out
+coverage.html
+build_errors.txt
+build_out.txt

@@ -1,0 +1,69 @@
+version: "3.8"
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: menu-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-secret}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-menu_db}
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-secret}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - menu-network
+
+  # Go Backend API (Production)
+  backend:
+    build:
+      context: ./backend-menu
+      dockerfile: Dockerfile
+    container_name: menu-backend
+    restart: unless-stopped
+    environment:
+      DB_HOST: db
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-secret}
+      DB_NAME: ${DB_NAME:-menu_db}
+      SERVER_PORT: 8080
+      APP_ENV: production
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - menu-network
+
+  # React Frontend (Production — Nginx)
+  frontend:
+    build:
+      context: ./frontend-menu
+      dockerfile: Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://localhost:8080/api}
+    container_name: menu-frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+    networks:
+      - menu-network
+
+volumes:
+  mysql_data:
+    driver: local
+
+networks:
+  menu-network:
+    driver: bridge
