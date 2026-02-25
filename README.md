@@ -4,6 +4,12 @@ A full-stack **hierarchical menu management** system with a Go REST API backend 
 
 ---
 
+## 🎬 Video Demo
+
+▶️ [Watch the full demo on Google Drive](https://drive.google.com/file/d/1-ZCBiXPd2gsxZqqxzcyg-I4TfYnEvyT1/view?usp=sharing)
+
+---
+
 ## 🏗️ Architecture Overview
 
 ```

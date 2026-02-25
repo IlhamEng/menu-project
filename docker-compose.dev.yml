@@ -41,9 +41,16 @@ services:
       - "8080:8080"
     volumes:
       - ./backend-menu:/app
+    command: sh -c "air -c .air.toml 2>&1 | tee /tmp/app.log"
     depends_on:
       db:
         condition: service_healthy
+    healthcheck:
+      test: [ "CMD-SHELL", "grep -q 'Listening and serving HTTP' /tmp/app.log 2>/dev/null" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
     networks:
       - menu-network-dev
 
@@ -62,7 +69,8 @@ services:
       - ./frontend-menu:/app
       - /app/node_modules
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     networks:
       - menu-network-dev
 
