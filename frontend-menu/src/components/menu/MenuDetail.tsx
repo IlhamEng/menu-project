@@ -5,12 +5,13 @@ import ConfirmDialog from '../ui/ConfirmDialog';
 import toast from 'react-hot-toast';
 
 export default function MenuDetail() {
-    const { selectedMenu, updateMenu, deleteMenu, getDepth, getParent } = useMenuStore();
+    const { selectedMenu, updateMenu, deleteMenu, moveMenu, getDepth, getAllMenusFlat, isDescendantOf } = useMenuStore();
 
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isMoving, setIsMoving] = useState(false);
     const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
     // Sync form with selection
@@ -34,7 +35,6 @@ export default function MenuDetail() {
     }
 
     const depth = getDepth(selectedMenu.id);
-    const parent = getParent(selectedMenu.id);
 
     const handleSave = async () => {
         if (!name.trim()) {
@@ -68,6 +68,25 @@ export default function MenuDetail() {
         }
     };
 
+    const handleMove = async (newParentId: number | null) => {
+        if (isMoving) return;
+        setIsMoving(true);
+        try {
+            await moveMenu(selectedMenu.id, { parent_id: newParentId });
+            toast.success('Menu moved successfully');
+        } catch {
+            toast.error('Failed to move menu');
+        } finally {
+            setIsMoving(false);
+        }
+    };
+
+    // Build move options: all menus except self and descendants
+    const allMenus = getAllMenusFlat();
+    const moveOptions = allMenus.filter(
+        (m) => m.id !== selectedMenu.id && !isDescendantOf(selectedMenu.id, m.id)
+    );
+
     return (
         <div className="space-y-5">
             {/* Menu ID */}
@@ -86,12 +105,26 @@ export default function MenuDetail() {
                 </div>
             </div>
 
-            {/* Parent Data */}
+            {/* Parent Data — Dropdown to move */}
             <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1.5">Parent Data</label>
-                <div className="px-4 py-2.5 bg-gray-50 rounded-xl text-sm text-gray-600">
-                    {parent ? parent.name : '(Root Level)'}
-                </div>
+                <select
+                    value={selectedMenu.parent_id ?? ''}
+                    onChange={(e) => {
+                        const val = e.target.value;
+                        const newParentId = val === '' ? null : Number(val);
+                        handleMove(newParentId);
+                    }}
+                    disabled={isMoving}
+                    className="w-full px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-400 transition-all cursor-pointer disabled:opacity-50"
+                >
+                    <option value="">(Root Level)</option>
+                    {moveOptions.map((m) => (
+                        <option key={m.id} value={m.id}>
+                            {'—'.repeat(m.depth)} {m.name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             {/* Name */}

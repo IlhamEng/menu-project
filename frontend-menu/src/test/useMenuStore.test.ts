@@ -337,5 +337,97 @@ describe('useMenuStore', () => {
 
             expect(menuApi.update).toHaveBeenCalledWith(1, { name: 'Updated' });
         });
+
+        it('should move a menu and reload', async () => {
+            const moved = { ...mockMenus[0].children![0], parent_id: null };
+            vi.mocked(menuApi.move).mockResolvedValue(moved);
+            vi.mocked(menuApi.getAll).mockResolvedValue(mockMenus);
+
+            const { result } = renderHook(() => useMenuStore());
+
+            await act(async () => {
+                await result.current.moveMenu(2, { parent_id: null });
+            });
+
+            expect(menuApi.move).toHaveBeenCalledWith(2, { parent_id: null });
+            expect(menuApi.getAll).toHaveBeenCalled();
+        });
+
+        it('should reorder a menu and reload', async () => {
+            const reordered = { ...mockMenus[0].children![0], sort_order: 1 };
+            vi.mocked(menuApi.reorder).mockResolvedValue(reordered);
+            vi.mocked(menuApi.getAll).mockResolvedValue(mockMenus);
+
+            const { result } = renderHook(() => useMenuStore());
+
+            await act(async () => {
+                await result.current.reorderMenu(2, { sort_order: 1 });
+            });
+
+            expect(menuApi.reorder).toHaveBeenCalledWith(2, { sort_order: 1 });
+            expect(menuApi.getAll).toHaveBeenCalled();
+        });
+    });
+
+    describe('new helpers', () => {
+        beforeEach(async () => {
+            vi.mocked(menuApi.getAll).mockResolvedValue(mockMenus);
+        });
+
+        it('getSiblings should return root-level siblings for root items', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            const siblings = result.current.getSiblings(1);
+            expect(siblings).toHaveLength(1);
+            expect(siblings[0].id).toBe(1);
+        });
+
+        it('getSiblings should return correct siblings for nested items', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            const siblings = result.current.getSiblings(2);
+            expect(siblings).toHaveLength(2);
+            expect(siblings.map((s) => s.id)).toEqual([2, 4]);
+        });
+
+        it('getSiblings should return empty array for non-existent item', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            const siblings = result.current.getSiblings(999);
+            expect(siblings).toEqual([]);
+        });
+
+        it('getAllMenusFlat should return all items with correct depths', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            const flat = result.current.getAllMenusFlat();
+            expect(flat).toHaveLength(4);
+            expect(flat[0]).toEqual({ id: 1, name: 'System Management', depth: 0 });
+            expect(flat[1]).toEqual({ id: 2, name: 'Systems', depth: 1 });
+            expect(flat[2]).toEqual({ id: 3, name: 'System Code', depth: 2 });
+            expect(flat[3]).toEqual({ id: 4, name: 'Properties', depth: 1 });
+        });
+
+        it('isDescendantOf should return true for actual descendants', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            expect(result.current.isDescendantOf(1, 2)).toBe(true);
+            expect(result.current.isDescendantOf(1, 3)).toBe(true);
+            expect(result.current.isDescendantOf(2, 3)).toBe(true);
+        });
+
+        it('isDescendantOf should return false for non-descendants', async () => {
+            const { result } = renderHook(() => useMenuStore());
+            await act(async () => { await result.current.loadMenus(); });
+
+            expect(result.current.isDescendantOf(2, 4)).toBe(false);
+            expect(result.current.isDescendantOf(3, 1)).toBe(false);
+            expect(result.current.isDescendantOf(4, 2)).toBe(false);
+        });
     });
 });

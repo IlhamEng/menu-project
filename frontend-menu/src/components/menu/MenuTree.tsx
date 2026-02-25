@@ -2,18 +2,91 @@ import { useMenuStore } from '../../store/useMenuStore';
 import MenuTreeItem from './MenuTreeItem';
 import Button from '../ui/Button';
 import type { MenuItem } from '../../types/menu';
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent,
+    DragOverlay,
+    type DragStartEvent,
+} from '@dnd-kit/core';
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { useState } from 'react';
+import toast from 'react-hot-toast';
 
 interface MenuTreeProps {
     onAddChild: (parentId: number | null) => void;
 }
 
+/** Flatten visible tree items into an ordered list */
+function flattenVisible(
+    items: MenuItem[],
+    expandedIds: Set<number>,
+    depth = 0,
+    parentId: number | null = null
+): { item: MenuItem; depth: number; parentId: number | null; siblingIndex: number; siblingCount: number }[] {
+    const result: { item: MenuItem; depth: number; parentId: number | null; siblingIndex: number; siblingCount: number }[] = [];
+    items.forEach((item, index) => {
+        result.push({ item, depth, parentId, siblingIndex: index, siblingCount: items.length });
+        const children = item.children ?? [];
+        if (expandedIds.has(item.id) && children.length > 0) {
+            result.push(...flattenVisible(children, expandedIds, depth + 1, item.id));
+        }
+    });
+    return result;
+}
+
 export default function MenuTree({ onAddChild }: MenuTreeProps) {
-    const { menus, expandAll, collapseAll, searchQuery, isLoading } = useMenuStore();
+    const { menus, expandAll, collapseAll, searchQuery, isLoading, expandedIds, reorderMenu, moveMenu } = useMenuStore();
+    const [activeId, setActiveId] = useState<number | null>(null);
+
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor)
+    );
 
     // Filter root menus by search
     const filteredMenus = searchQuery
         ? menus.filter((m) => matchesSearch(m, searchQuery))
         : menus;
+
+    // Flatten visible items for DnD
+    const flatItems = flattenVisible(filteredMenus, expandedIds);
+    const sortableIds = flatItems.map((f) => f.item.id);
+
+    const handleDragStart = (event: DragStartEvent) => {
+        setActiveId(event.active.id as number);
+    };
+
+    const handleDragEnd = async (event: DragEndEvent) => {
+        setActiveId(null);
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+
+        const activeItem = flatItems.find((f) => f.item.id === active.id);
+        const overItem = flatItems.find((f) => f.item.id === over.id);
+        if (!activeItem || !overItem) return;
+
+        try {
+            if (activeItem.parentId === overItem.parentId) {
+                // Same parent → reorder
+                await reorderMenu(activeItem.item.id, { sort_order: overItem.siblingIndex });
+            } else {
+                // Different parent → move to over item's parent, then reorder
+                await moveMenu(activeItem.item.id, { parent_id: overItem.parentId });
+            }
+        } catch {
+            toast.error('Failed to move menu item');
+        }
+    };
+
+    const activeFlat = activeId ? flatItems.find((f) => f.item.id === activeId) : null;
 
     if (isLoading) {
         return (
@@ -66,19 +139,38 @@ export default function MenuTree({ onAddChild }: MenuTreeProps) {
                 </Button>
             </div>
 
-            {/* Tree */}
-            <div className="pl-1">
-                {filteredMenus.map((item, index) => (
-                    <MenuTreeItem
-                        key={item.id}
-                        item={item}
-                        depth={0}
-                        isLast={index === filteredMenus.length - 1}
-                        parentLines={[]}
-                        onAddChild={onAddChild}
-                    />
-                ))}
-            </div>
+            {/* DnD Tree */}
+            <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragStart={handleDragStart}
+                onDragEnd={handleDragEnd}
+            >
+                <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+                    <div className="pl-1">
+                        {filteredMenus.map((item, index) => (
+                            <MenuTreeItem
+                                key={item.id}
+                                item={item}
+                                depth={0}
+                                isLast={index === filteredMenus.length - 1}
+                                parentLines={[]}
+                                onAddChild={onAddChild}
+                                siblingIndex={index}
+                                siblingCount={filteredMenus.length}
+                            />
+                        ))}
+                    </div>
+                </SortableContext>
+
+                <DragOverlay>
+                    {activeFlat ? (
+                        <div className="bg-white border border-blue-300 rounded-lg px-3 py-1.5 shadow-lg text-sm font-medium text-blue-700 opacity-90">
+                            {activeFlat.item.name}
+                        </div>
+                    ) : null}
+                </DragOverlay>
+            </DndContext>
         </div>
     );
 }

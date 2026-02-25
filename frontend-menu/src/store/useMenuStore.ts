@@ -47,6 +47,40 @@ function calculateDepth(items: MenuItem[], targetId: number, currentDepth = 0): 
     return -1;
 }
 
+/** Get siblings of a menu item (items sharing the same parent) */
+function findSiblings(items: MenuItem[], id: number): MenuItem[] {
+    for (const item of items) {
+        const children = item.children ?? [];
+        if (children.some((c) => c.id === id)) {
+            return children;
+        }
+        const found = findSiblings(children, id);
+        if (found.length > 0) return found;
+    }
+    return [];
+}
+
+/** Flatten the tree into a list with depth info */
+function flattenTree(items: MenuItem[], depth = 0): { id: number; name: string; depth: number }[] {
+    const result: { id: number; name: string; depth: number }[] = [];
+    for (const item of items) {
+        result.push({ id: item.id, name: item.name, depth });
+        const children = item.children ?? [];
+        if (children.length > 0) {
+            result.push(...flattenTree(children, depth + 1));
+        }
+    }
+    return result;
+}
+
+/** Check if targetId is a descendant of ancestorId */
+function checkIsDescendant(items: MenuItem[], ancestorId: number, targetId: number): boolean {
+    const ancestor = findById(items, ancestorId);
+    if (!ancestor) return false;
+    const descendantIds = collectIds(ancestor.children ?? []);
+    return descendantIds.includes(targetId);
+}
+
 interface MenuStore {
     // State
     menus: MenuItem[];
@@ -73,6 +107,9 @@ interface MenuStore {
     getDepth: (id: number) => number;
     getParent: (id: number) => MenuItem | null;
     findMenuById: (id: number) => MenuItem | null;
+    getSiblings: (id: number) => MenuItem[];
+    getAllMenusFlat: () => { id: number; name: string; depth: number }[];
+    isDescendantOf: (ancestorId: number, targetId: number) => boolean;
 }
 
 export const useMenuStore = create<MenuStore>((set, get) => ({
@@ -174,5 +211,21 @@ export const useMenuStore = create<MenuStore>((set, get) => ({
 
     findMenuById: (id) => {
         return findById(get().menus, id);
+    },
+
+    getSiblings: (id) => {
+        const item = findById(get().menus, id);
+        if (!item) return [];
+        // Root-level items: siblings are top-level menus
+        if (item.parent_id === null) return get().menus;
+        return findSiblings(get().menus, id);
+    },
+
+    getAllMenusFlat: () => {
+        return flattenTree(get().menus);
+    },
+
+    isDescendantOf: (ancestorId, targetId) => {
+        return checkIsDescendant(get().menus, ancestorId, targetId);
     },
 }));
