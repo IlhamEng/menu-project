@@ -57,11 +57,11 @@ export default function MenuTree({ onAddChild }: MenuTreeProps) {
     return (
         <div>
             {/* Expand / Collapse buttons */}
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                <Button variant="black" size="full" className="flex-1 sm:flex-none" onClick={expandAll}>
+            <div className="flex flex-row items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                <Button variant="black" size="full" className="flex-1 sm:flex-none rounded-full" onClick={expandAll}>
                     Expand All
                 </Button>
-                <Button variant="secondary" size="full" className="flex-1 sm:flex-none" onClick={collapseAll}>
+                <Button variant="secondary" size="full" className="flex-1 sm:flex-none rounded-full" onClick={collapseAll}>
                     Collapse All
                 </Button>
             </div>
